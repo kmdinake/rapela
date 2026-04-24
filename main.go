@@ -15,6 +15,7 @@ func (v BibleVerse) String() string {
 }
 
 func getVerse() BibleVerse {
+	fmt.Println("Getting the verse...")
 	return BibleVerse{
 		Id:      1,
 		Book:    "John",
@@ -28,5 +29,5 @@ func main() {
 	var verse = getVerse()
 
 	fmt.Println("Dumela ngwana waka! Tseya sebaka se go rapela.")
-	fmt.Print(verse)
+	fmt.Println(verse)
 }
