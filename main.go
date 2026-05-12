@@ -56,7 +56,25 @@ func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are us
 
 // Get a list of available Bible versions
 func (bs *BibleService) GetBibleVersions() []BibleVersion {
-	panic("Method not implemented")
+	fmt.Println("Getting bible versions...")
+	url := "https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/bibles.json"
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Printf("Error fetching bible versions: %v\n", err)
+		return []BibleVersion{}
+	}
+
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		fmt.Printf("Error reading bible versions body: %v\n", readErr)
+		return []BibleVersion{}
+	}
+
+	return bs.convertRawJsonToBibleVersions(body)
 }
 
 // Set the current Bible version to be used
@@ -74,7 +92,36 @@ func (bs *BibleService) GetVerseByReference(book string, chapter int, verse int)
 	panic("Method not implemented")
 }
 
+func (bs *BibleService) convertRawJsonToBibleVersions(rawJsonData []byte) []BibleVersion {
+	fmt.Println("Converting json data...")
+	var versions []BibleVersion
+	var data interface{}
+	jsonErr := json.Unmarshal(rawJsonData, &data)
+	if jsonErr != nil {
+		fmt.Printf("Error parsing bible versions JSON: %v\n", jsonErr)
+		return []BibleVersion{}
+	}
+	for _, v := range data.([]interface{}) {
+		if versionMap, ok := v.(map[string]interface{}); ok {
+			langMap, langMapOk := versionMap["language"].(map[string]interface{})
+			if !langMapOk {
+				fmt.Printf("Error asserting language data: %T\n", versionMap["language"])
+				continue
+			}
+			version := BibleVersion{
+				Id:       versionMap["id"].(string),
+				Name:     versionMap["localVersionName"].(string),
+				Version:  versionMap["localVersionAbbreviation"].(string),
+				Language: langMap["name"].(string),
+			}
+			versions = append(versions, version)
+		}
+	}
+	return versions
+}
+
 type BibleVersion struct {
+	Id       string `json:"id"`
 	Name     string `json:"name"`
 	Version  string `json:"version"`
 	Language string `json:"language"`
@@ -92,16 +139,24 @@ func (v BibleVerse) String() string {
 	return fmt.Sprintf("Verse of the day: %s %d:%s - %s", v.Book, v.Chapter, v.Verse, v.Text)
 }
 
-func main() {
-	var bs = &BibleService{
+func NewBibleService() *BibleService {
+	return &BibleService{
 		currentVersion: BibleVersion{
-			Name:     "King James Version",
-			Version:  "en-kjv",
-			Language: "English",
+			Name:    "King James Version",
+			Version: "en-kjv",
 		},
 	}
-	var verse = bs.GetVerseOfTheDay()
+}
 
-	fmt.Println("Dumela ngwana waka! Tseya sebaka se go rapela.")
-	fmt.Println(verse)
+func main() {
+	var bs = NewBibleService()
+	var versions = bs.GetBibleVersions()
+	fmt.Println("Available Bible Versions:")
+	for _, version := range versions {
+		fmt.Printf("- %s: %s (%s)\n", version.Id, version.Name, version.Version)
+	}
+	// var verse = bs.GetVerseOfTheDay()
+
+	// fmt.Println("Dumela ngwana waka! Tseya sebaka se go rapela.")
+	// fmt.Println(verse)
 }
