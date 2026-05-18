@@ -10,16 +10,33 @@ import (
 
 type BibleService struct {
 	verseOfTheDay  BibleVerse
-	CurrentVersion BibleVersion
+	currentVersion BibleVersion
 }
 
-func NewBibleService(bibleName string, bibleVersion string) *BibleService {
-	return &BibleService{
-		CurrentVersion: BibleVersion{
-			Name:    bibleName,
-			Version: bibleVersion,
-		},
+func NewBibleService(bibleVersionId string) (*BibleService, error) {
+	bs := &BibleService{}
+
+	version, err := bs.TryGetBibleVersionById(bibleVersionId)
+	if err != nil {
+		return nil, err
 	}
+
+	if version.Id == "" {
+		return nil, fmt.Errorf("Bible version not found: %s", bibleVersionId)
+	}
+
+	bs.currentVersion = version
+	return bs, nil
+}
+
+func (bs *BibleService) GetBibleVersionById(bibleVersionId string) (BibleVersion, error) {
+	versions := bs.GetBibleVersions()
+	for _, version := range versions {
+		if version.Id == bibleVersionId {
+			return version, nil
+		}
+	}
+	return BibleVersion{}, fmt.Errorf("Bible version not found: %s", bibleVersionId)
 }
 
 // Get a random verse from the bible
@@ -29,7 +46,7 @@ func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are us
 	verse := 16
 
 	fmt.Println("Getting the verse...")
-	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/%s/books/%s/chapters/%d/verses/%d.json", bs.CurrentVersion.Version, book, chapter, verse)
+	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/%s/books/%s/chapters/%d/verses/%d.json", bs.currentVersion.Id, book, chapter, verse)
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error fetching verse: %v\n", err)
@@ -83,17 +100,47 @@ func (bs *BibleService) GetBibleVersions() []BibleVersion {
 		return []BibleVersion{}
 	}
 
-	return bs.convertRawJsonToBibleVersions(body)
+	return bs.convertToBibleVersions(body)
+}
+
+// Get a bible version by its ID
+func (bs *BibleService) TryGetBibleVersionById(bibleVersionId string) (BibleVersion, error) {
+	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/%s/%s.json", bibleVersionId, bibleVersionId)
+	resp, err := http.Get(url)
+
+	if err != nil {
+		fmt.Printf("Error fetching bible version: %v\n", err)
+		return BibleVersion{}, err
+	}
+
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		fmt.Printf("Error reading bible version body: %v\n", readErr)
+		return BibleVersion{}, readErr
+	}
+
+	version, err := bs.convertToBibleVersion(body)
+	if err != nil {
+		return BibleVersion{}, fmt.Errorf("Error converting bible version JSON: %v\n", err)
+	}
+
+	return version, nil
 }
 
 // Set the current Bible version to be used
 func (bs *BibleService) SetBibleVersion(version BibleVersion) {
-	panic("Method not implemented")
+	if bs.currentVersion.Id != version.Id {
+		bs.currentVersion = version
+	}
 }
 
 // Get the current Bible version being used
 func (bs *BibleService) GetBibleVersion() BibleVersion {
-	panic("Method not implemented")
+	return bs.currentVersion
 }
 
 // Get a specific verse by its reference (book, chapter, verse)
@@ -101,8 +148,8 @@ func (bs *BibleService) GetVerseByReference(book string, chapter int, verse int)
 	panic("Method not implemented")
 }
 
-func (bs *BibleService) convertRawJsonToBibleVersions(rawJsonData []byte) []BibleVersion {
-	fmt.Println("Converting json data...")
+func (bs *BibleService) convertToBibleVersions(rawJsonData []byte) []BibleVersion {
+	fmt.Println("Converting to bible version collection...")
 	var versions []BibleVersion
 	var data interface{}
 	jsonErr := json.Unmarshal(rawJsonData, &data)
@@ -111,22 +158,45 @@ func (bs *BibleService) convertRawJsonToBibleVersions(rawJsonData []byte) []Bibl
 		return []BibleVersion{}
 	}
 	for _, v := range data.([]interface{}) {
-		if versionMap, ok := v.(map[string]interface{}); ok {
-			langMap, langMapOk := versionMap["language"].(map[string]interface{})
-			if !langMapOk {
-				fmt.Printf("Error asserting language data: %T\n", versionMap["language"])
-				continue
-			}
-			version := BibleVersion{
-				Id:       versionMap["id"].(string),
-				Name:     versionMap["localVersionName"].(string),
-				Version:  versionMap["localVersionAbbreviation"].(string),
-				Language: langMap["name"].(string),
-			}
-			versions = append(versions, version)
+		version, err := bs.convertJsonToBibleVersion(v)
+		if err != nil {
+			continue
 		}
+		versions = append(versions, version)
 	}
 	return versions
+}
+
+func (bs *BibleService) convertToBibleVersion(rawJsonData []byte) (BibleVersion, error) {
+	fmt.Println("Converting to bible version...")
+	var version BibleVersion
+	var data interface{}
+	jsonErr := json.Unmarshal(rawJsonData, &data)
+	if jsonErr != nil {
+		return BibleVersion{}, fmt.Errorf("Error parsing bible version JSON: %v\n", jsonErr)
+	}
+	var err error
+	version, err = bs.convertJsonToBibleVersion(data)
+	if err != nil {
+		return BibleVersion{}, fmt.Errorf("Error converting bible version map: %v\n", err)
+	}
+	return version, nil
+}
+
+func (bs *BibleService) convertJsonToBibleVersion(jsonData interface{}) (BibleVersion, error) {
+	if bibleVersionMap, versionMapOk := jsonData.(map[string]interface{}); versionMapOk {
+		bibleLanguageMap, bibleLanguageMapOk := bibleVersionMap["language"].(map[string]interface{})
+		if !bibleLanguageMapOk {
+			return BibleVersion{}, fmt.Errorf("Error asserting bible versionlanguage data: %T\n", bibleVersionMap["language"])
+		}
+		return BibleVersion{
+			Id:       bibleVersionMap["id"].(string),
+			Name:     bibleVersionMap["localVersionName"].(string),
+			Version:  bibleVersionMap["localVersionAbbreviation"].(string),
+			Language: bibleLanguageMap["name"].(string),
+		}, nil
+	}
+	return BibleVersion{}, fmt.Errorf("Error asserting bible version data: %T\n", jsonData)
 }
 
 type BibleVersion struct {
@@ -134,6 +204,10 @@ type BibleVersion struct {
 	Name     string `json:"name"`
 	Version  string `json:"version"`
 	Language string `json:"language"`
+}
+
+func (v BibleVersion) String() string {
+	return fmt.Sprintf("- %s: %s (%s)", v.Id, v.Name, v.Version)
 }
 
 type BibleVerse struct {
