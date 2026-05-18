@@ -23,12 +23,14 @@ func TestBibleServiceCreation(t *testing.T) {
 }
 
 func TestDefaultBibleServiceCreation(t *testing.T) {
+	defaultBibleName := "King James Version of the Holy Bible"
+	defaultBibleVersion := "KJV"
 	bs := NewDefaultBibleService()
-	if bs.CurrentVersion.Name != "King James" {
-		t.Errorf("Expected Bible name to be 'King James', got '%s'", bs.CurrentVersion.Name)
+	if bs.CurrentVersion.Name != defaultBibleName {
+		t.Errorf("Expected Bible name to be '%s', got '%s'", defaultBibleName, bs.CurrentVersion.Name)
 	}
-	if bs.CurrentVersion.Version != "kjv" {
-		t.Errorf("Expected Bible version to be 'kjv', got '%s'", bs.CurrentVersion.Version)
+	if bs.CurrentVersion.Version != defaultBibleVersion {
+		t.Errorf("Expected Bible version to be '%s', got '%s'", defaultBibleVersion, bs.CurrentVersion.Version)
 	}
 
 	bs2 := NewDefaultBibleService()
