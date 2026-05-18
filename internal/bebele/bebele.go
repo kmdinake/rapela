@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var httpGet = http.Get
+
 type BibleService struct {
 	verseOfTheDay  BibleVerse
 	currentVersion BibleVersion
@@ -16,7 +18,7 @@ type BibleService struct {
 func NewBibleService(bibleVersionId string) (*BibleService, error) {
 	bs := &BibleService{}
 
-	version, err := bs.TryGetBibleVersionById(bibleVersionId)
+	version, err := bs.GetBibleVersionById(bibleVersionId)
 	if err != nil {
 		return nil, err
 	}
@@ -29,16 +31,6 @@ func NewBibleService(bibleVersionId string) (*BibleService, error) {
 	return bs, nil
 }
 
-func (bs *BibleService) GetBibleVersionById(bibleVersionId string) (BibleVersion, error) {
-	versions := bs.GetBibleVersions()
-	for _, version := range versions {
-		if version.Id == bibleVersionId {
-			return version, nil
-		}
-	}
-	return BibleVersion{}, fmt.Errorf("Bible version not found: %s", bibleVersionId)
-}
-
 // Get a random verse from the bible
 func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are using a pointer receiver here, which allows us to modify the state of the BibleService struct
 	book := strings.ToLower("John")
@@ -47,7 +39,7 @@ func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are us
 
 	fmt.Println("Getting the verse...")
 	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/%s/books/%s/chapters/%d/verses/%d.json", bs.currentVersion.Id, book, chapter, verse)
-	resp, err := http.Get(url)
+	resp, err := httpGet(url)
 	if err != nil {
 		fmt.Printf("Error fetching verse: %v\n", err)
 		return BibleVerse{}
@@ -84,7 +76,7 @@ func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are us
 func (bs *BibleService) GetBibleVersions() []BibleVersion {
 	fmt.Println("Getting bible versions...")
 	url := "https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/bibles.json"
-	resp, err := http.Get(url)
+	resp, err := httpGet(url)
 	if err != nil {
 		fmt.Printf("Error fetching bible versions: %v\n", err)
 		return []BibleVersion{}
@@ -104,23 +96,21 @@ func (bs *BibleService) GetBibleVersions() []BibleVersion {
 }
 
 // Get a bible version by its ID
-func (bs *BibleService) TryGetBibleVersionById(bibleVersionId string) (BibleVersion, error) {
+func (bs *BibleService) GetBibleVersionById(bibleVersionId string) (BibleVersion, error) {
 	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/%s/%s.json", bibleVersionId, bibleVersionId)
-	resp, err := http.Get(url)
+	resp, err := httpGet(url)
 
 	if err != nil {
-		fmt.Printf("Error fetching bible version: %v\n", err)
-		return BibleVersion{}, err
+		return BibleVersion{}, fmt.Errorf("Bible version not found: %s\n%v\n", bibleVersionId, err)
 	}
 
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}
 
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		fmt.Printf("Error reading bible version body: %v\n", readErr)
-		return BibleVersion{}, readErr
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return BibleVersion{}, fmt.Errorf("Error reading bible version body: %v\n", err)
 	}
 
 	version, err := bs.convertToBibleVersion(body)
