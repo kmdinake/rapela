@@ -2,44 +2,45 @@ package rapela
 
 import "testing"
 
-func TestBibleServiceCreation(t *testing.T) {
-	bs := NewBibleService("New International Version", "niv")
-	if bs.CurrentVersion.Name != "New International Version" {
-		t.Errorf("Expected Bible name to be 'New International Version', got '%s'", bs.CurrentVersion.Name)
-	}
-	if bs.CurrentVersion.Version != "niv" {
-		t.Errorf("Expected Bible version to be 'niv', got '%s'", bs.CurrentVersion.Version)
-	}
-
-	bs2 := NewBibleService("New International Version", "niv")
-	if bs != bs2 {
-		t.Errorf("Expected singleton instances to be the same")
-	}
-
-	bs3 := NewBibleService("World English Bible", "WEB")
-	if bs == bs3 {
-		t.Errorf("Expected singleton instances to be different")
-	}
+func resetBibleService() {
+	bibleService = nil
 }
 
-func TestDefaultBibleServiceCreation(t *testing.T) {
-	defaultBibleName := "King James Version of the Holy Bible"
-	defaultBibleVersion := "KJV"
-	bs := NewDefaultBibleService()
-	if bs.CurrentVersion.Name != defaultBibleName {
-		t.Errorf("Expected Bible name to be '%s', got '%s'", defaultBibleName, bs.CurrentVersion.Name)
-	}
-	if bs.CurrentVersion.Version != defaultBibleVersion {
-		t.Errorf("Expected Bible version to be '%s', got '%s'", defaultBibleVersion, bs.CurrentVersion.Version)
-	}
+func TestNewBibleService(t *testing.T) {
+	t.Cleanup(resetBibleService)
 
-	bs2 := NewDefaultBibleService()
-	if bs2 != bs {
-		t.Errorf("Expected default singleton instances to be the same")
-	}
+	t.Run("initializes the default bible service", func(t *testing.T) {
+		bs, err := NewBibleService()
+		if err != nil {
+			t.Fatalf("NewBibleService() returned error: %v", err)
+		}
+		if bs == nil {
+			t.Fatal("NewBibleService() returned nil service")
+		}
 
-	bs3 := NewBibleService("New International Version", "niv")
-	if bs3 == bs {
-		t.Errorf("Expected default singleton instances to be different")
-	}
+		version := bs.GetBibleVersion()
+		if got, want := version.Id, "en-kjv"; got != want {
+			t.Errorf("GetBibleVersion().Id = %q, want %q", got, want)
+		}
+		if got, want := version.Name, "King James Version of the Holy Bible"; got != want {
+			t.Errorf("GetBibleVersion().Name = %q, want %q", got, want)
+		}
+		if got, want := version.Version, "KJV"; got != want {
+			t.Errorf("GetBibleVersion().Version = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("returns the same singleton instance", func(t *testing.T) {
+		first, err := NewBibleService()
+		if err != nil {
+			t.Fatalf("NewBibleService() returned error: %v", err)
+		}
+		second, err := NewBibleService()
+		if err != nil {
+			t.Fatalf("second NewBibleService() returned error: %v", err)
+		}
+		if first != second {
+			t.Fatal("NewBibleService() should return the same singleton instance")
+		}
+	})
 }

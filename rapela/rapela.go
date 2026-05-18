@@ -8,20 +8,15 @@ type BibleVersion = bebele.BibleVersion
 
 type BibleVerse = bebele.BibleVerse
 
-var bibleServiceSingleton *BibleService
+var bibleService *BibleService
 
-func NewBibleService(bibleName string, bibleVersion string) *BibleService {
-	if bibleServiceSingleton == nil || (bibleServiceSingleton.CurrentVersion.Name != bibleName && bibleServiceSingleton.CurrentVersion.Version != bibleVersion) {
-		bibleServiceSingleton = bebele.NewBibleService(bibleName, bibleVersion)
+func NewBibleService() (*BibleService, error) {
+	if bibleService == nil {
+		var err error
+		bibleService, err = bebele.NewBibleService("en-kjv")
+		if err != nil {
+			return nil, err
+		}
 	}
-	return bibleServiceSingleton
-}
-
-func NewDefaultBibleService() *BibleService {
-	defaultBibleName := "King James Version of the Holy Bible"
-	defaultBibleVersion := "KJV"
-	if bibleServiceSingleton == nil || (bibleServiceSingleton.CurrentVersion.Name != defaultBibleName && bibleServiceSingleton.CurrentVersion.Version != defaultBibleVersion) {
-		bibleServiceSingleton = bebele.NewBibleService(defaultBibleName, defaultBibleVersion)
-	}
-	return bibleServiceSingleton
+	return bibleService, nil
 }
