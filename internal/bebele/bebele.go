@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 )
@@ -31,17 +32,97 @@ func NewBibleService(bibleVersionId string) (*BibleService, error) {
 	return bs, nil
 }
 
-// Get a random verse from the bible
-func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are using a pointer receiver here, which allows us to modify the state of the BibleService struct
-	book := strings.ToLower("John")
-	chapter := 3
-	verse := 16
-
-	fmt.Println("Getting the verse...")
-	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/%s/books/%s/chapters/%d/verses/%d.json", bs.currentVersion.Id, book, chapter, verse)
+func (bs *BibleService) getRandomBookBy(bibleVersionId string) string {
+	fmt.Printf("Getting books for bible version %s\n", bibleVersionId)
+	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books", bibleVersionId)
 	resp, err := httpGet(url)
 	if err != nil {
-		fmt.Printf("Error fetching verse: %v\n", err)
+		fmt.Printf("Error fetching book: %v\n", err)
+		return ""
+	}
+
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading books: %v\n", err)
+		return ""
+	}
+
+	var data any
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		fmt.Printf("Error parsing books: %v\n", err)
+		return ""
+	}
+
+	var books []string
+	for _, b := range data.([]interface{}) {
+		if item, ok := b.(map[string]interface{}); ok {
+			bookName := item["name"].(string)
+			books = append(books, bookName)
+		}
+	}
+	if len(books) == 0 {
+		fmt.Printf("Error parsing books: %v\n", err)
+		return ""
+	}
+
+	bookIndex := rand.IntN(len(books))
+	return books[bookIndex]
+}
+
+func (bs *BibleService) getRandomChapterBy(bibleVersionId string, bookName string) string {
+	fmt.Printf("Getting chapters for bible version %s book %s\n", bibleVersionId, bookName)
+	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books/%s/chapters", bibleVersionId, bookName)
+	resp, err := httpGet(url)
+	if err != nil {
+		fmt.Printf("Error fetching chapters: %v\n", err)
+		return ""
+	}
+
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading chapters: %v\n", err)
+		return ""
+	}
+
+	var data any
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		fmt.Printf("Error parsing chapters: %v\n", err)
+		return ""
+	}
+
+	var chapters []string
+	for _, c := range data.([]interface{}) {
+		if item, ok := c.(map[string]interface{}); ok {
+			chapterName := item["name"].(string)
+			if !strings.Contains(chapterName, ".json") {
+				chapters = append(chapters, chapterName)
+			}
+		}
+	}
+	if len(chapters) == 0 {
+		fmt.Printf("Error parsing chapters: %v\n", err)
+		return ""
+	}
+	chapterIndex := rand.IntN(len(chapters))
+	return chapters[chapterIndex]
+}
+
+func (bs *BibleService) getRandomVerseBy(bibleVersionId string, bookName string, chapter string) BibleVerse {
+	fmt.Printf("Getting verses for bible version %s book %s chapter %s\n", bibleVersionId, bookName, chapter)
+	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s.json", bibleVersionId, bookName, chapter)
+	resp, err := httpGet(url)
+	if err != nil {
+		fmt.Printf("Error fetching verses: %v\n", err)
 		return BibleVerse{}
 	}
 
@@ -49,27 +130,48 @@ func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are us
 		defer resp.Body.Close()
 	}
 
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		fmt.Printf("Error reading verse body: %v\n", readErr)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading verses: %v\n", err)
 		return BibleVerse{}
 	}
 
-	verseOfTheDay := BibleVerse{
-		Id:      fmt.Sprintf("%s-%d-%d", book, chapter, verse),
-		Book:    strings.ToTitle(book),
-		Chapter: chapter,
-		Verse:   fmt.Sprintf("%d", verse),
-		Text:    "",
-	}
-
-	jsonErr := json.Unmarshal(body, &verseOfTheDay)
-	if jsonErr != nil {
-		fmt.Printf("Error parsing verse JSON: %v\n", jsonErr)
+	var data any
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		fmt.Printf("Error parsing verses: %v\n", err)
 		return BibleVerse{}
 	}
 
-	return verseOfTheDay
+	var verses []BibleVerse
+	if dataMap, ok := data.(map[string]interface{}); ok {
+		for _, v := range dataMap["data"].([]interface{}) {
+			if item, ok := v.(map[string]interface{}); ok {
+				verse := BibleVerse{
+					Book:    item["book"].(string),
+					Chapter: item["chapter"].(string),
+					Verse:   item["verse"].(string),
+					Text:    item["text"].(string),
+				}
+				verse.Id = fmt.Sprintf("%s-%s-%s", verse.Book, verse.Chapter, verse.Verse)
+				verses = append(verses, verse)
+			}
+		}
+	}
+	if len(verses) == 0 {
+		fmt.Printf("Error parsing verses: %v\n", err)
+		return BibleVerse{}
+	}
+	verseIndex := rand.IntN(len(verses))
+	return verses[verseIndex]
+}
+
+// Get a random verse from the bible
+func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are using a pointer receiver here, which allows us to modify the state of the BibleService struct
+	book := bs.getRandomBookBy(bs.currentVersion.Id)
+	chapter := bs.getRandomChapterBy(bs.currentVersion.Id, book)
+	verse := bs.getRandomVerseBy(bs.currentVersion.Id, book, chapter)
+	return verse
 }
 
 // Get a list of available Bible versions
@@ -207,11 +309,11 @@ func (v BibleVersion) String() string {
 type BibleVerse struct {
 	Id      string `json:"id"`
 	Book    string `json:"book"`
-	Chapter int    `json:"chapter"`
+	Chapter string `json:"chapter"`
 	Verse   string `json:"verse"`
 	Text    string `json:"text"`
 }
 
 func (v BibleVerse) String() string {
-	return fmt.Sprintf("Verse of the day: %s %d:%s - %s", v.Book, v.Chapter, v.Verse, v.Text)
+	return fmt.Sprintf("Verse of the day: %s %s:%s - %s", v.Book, v.Chapter, v.Verse, v.Text)
 }

@@ -188,7 +188,7 @@ func TestBibleVersionString(t *testing.T) {
 }
 
 func TestBibleVerseString(t *testing.T) {
-	verse := BibleVerse{Book: "John", Chapter: 3, Verse: "16", Text: "For God so loved the world..."}
+	verse := BibleVerse{Book: "John", Chapter: "3", Verse: "16", Text: "For God so loved the world..."}
 	if got := verse.String(); !strings.Contains(got, "John 3:16") || !strings.Contains(got, "For God so loved the world...") {
 		t.Fatalf("unexpected BibleVerse.String output: %q", got)
 	}
