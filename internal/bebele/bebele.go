@@ -32,13 +32,10 @@ func NewBibleService(bibleVersionId string) (*BibleService, error) {
 	return bs, nil
 }
 
-func (bs *BibleService) getRandomBookBy(bibleVersionId string) string {
-	fmt.Printf("Getting books for bible version %s\n", bibleVersionId)
-	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books", bibleVersionId)
+func fetchJsonDataFrom(url string, outputParam *any) error {
 	resp, err := httpGet(url)
 	if err != nil {
-		fmt.Printf("Error fetching book: %v\n", err)
-		return ""
+		return err
 	}
 
 	if resp.Body != nil {
@@ -47,14 +44,23 @@ func (bs *BibleService) getRandomBookBy(bibleVersionId string) string {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading books: %v\n", err)
-		return ""
+		return err
 	}
 
-	var data any
-	err = json.Unmarshal(body, &data)
+	err = json.Unmarshal(body, outputParam)
 	if err != nil {
-		fmt.Printf("Error parsing books: %v\n", err)
+		return err
+	}
+
+	return nil
+}
+
+func (bs *BibleService) getRandomBookBy(bibleVersionId string) string {
+	fmt.Printf("Getting books for bible version %s\n", bibleVersionId)
+	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books", bibleVersionId)
+	var data any
+	if err := fetchJsonDataFrom(url, &data); err != nil {
+		fmt.Printf("Error fetching books: %v\n", err)
 		return ""
 	}
 
@@ -66,7 +72,7 @@ func (bs *BibleService) getRandomBookBy(bibleVersionId string) string {
 		}
 	}
 	if len(books) == 0 {
-		fmt.Printf("Error parsing books: %v\n", err)
+		fmt.Println("Error parsing books")
 		return ""
 	}
 
@@ -77,26 +83,9 @@ func (bs *BibleService) getRandomBookBy(bibleVersionId string) string {
 func (bs *BibleService) getRandomChapterBy(bibleVersionId string, bookName string) string {
 	fmt.Printf("Getting chapters for bible version %s book %s\n", bibleVersionId, bookName)
 	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books/%s/chapters", bibleVersionId, bookName)
-	resp, err := httpGet(url)
-	if err != nil {
-		fmt.Printf("Error fetching chapters: %v\n", err)
-		return ""
-	}
-
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error reading chapters: %v\n", err)
-		return ""
-	}
-
 	var data any
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		fmt.Printf("Error parsing chapters: %v\n", err)
+	if err := fetchJsonDataFrom(url, &data); err != nil {
+		fmt.Printf("Error fetching chapters: %v\n", err)
 		return ""
 	}
 
@@ -110,7 +99,7 @@ func (bs *BibleService) getRandomChapterBy(bibleVersionId string, bookName strin
 		}
 	}
 	if len(chapters) == 0 {
-		fmt.Printf("Error parsing chapters: %v\n", err)
+		fmt.Println("Error parsing chapters")
 		return ""
 	}
 	chapterIndex := rand.IntN(len(chapters))
@@ -120,26 +109,9 @@ func (bs *BibleService) getRandomChapterBy(bibleVersionId string, bookName strin
 func (bs *BibleService) getRandomVerseBy(bibleVersionId string, bookName string, chapter string) BibleVerse {
 	fmt.Printf("Getting verses for bible version %s book %s chapter %s\n", bibleVersionId, bookName, chapter)
 	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s.json", bibleVersionId, bookName, chapter)
-	resp, err := httpGet(url)
-	if err != nil {
-		fmt.Printf("Error fetching verses: %v\n", err)
-		return BibleVerse{}
-	}
-
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error reading verses: %v\n", err)
-		return BibleVerse{}
-	}
-
 	var data any
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		fmt.Printf("Error parsing verses: %v\n", err)
+	if err := fetchJsonDataFrom(url, &data); err != nil {
+		fmt.Printf("Error fetching books: %v\n", err)
 		return BibleVerse{}
 	}
 
@@ -159,7 +131,7 @@ func (bs *BibleService) getRandomVerseBy(bibleVersionId string, bookName string,
 		}
 	}
 	if len(verses) == 0 {
-		fmt.Printf("Error parsing verses: %v\n", err)
+		fmt.Println("Error parsing verses")
 		return BibleVerse{}
 	}
 	verseIndex := rand.IntN(len(verses))
