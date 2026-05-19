@@ -140,10 +140,13 @@ func (bs *BibleService) getRandomVerseBy(bibleVersionId string, bookName string,
 
 // Get a random verse from the bible
 func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are using a pointer receiver here, which allows us to modify the state of the BibleService struct
+	if bs.verseOfTheDay.Id != "" {
+		return bs.verseOfTheDay
+	}
 	book := bs.getRandomBookBy(bs.currentVersion.Id)
 	chapter := bs.getRandomChapterBy(bs.currentVersion.Id, book)
-	verse := bs.getRandomVerseBy(bs.currentVersion.Id, book, chapter)
-	return verse
+	bs.verseOfTheDay = bs.getRandomVerseBy(bs.currentVersion.Id, book, chapter)
+	return bs.verseOfTheDay
 }
 
 // Get a list of available Bible versions
