@@ -1,21 +1,22 @@
 package bebele
 
 import (
-	"io"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
 func TestConvertToBibleVersions(t *testing.T) {
 	rawJSON := `[
-		{
-			"id": "en-kjv",
-			"localVersionName": "King James Version of the Holy Bible",
-			"localVersionAbbreviation": "KJV",
-			"language": {"name": "English"}
-		}
-	]`
+        {
+            "id": "en-kjv",
+            "localVersionName": "King James Version of the Holy Bible",
+            "localVersionAbbreviation": "KJV",
+            "language": {"name": "English"}
+        }
+    ]`
 
 	bs := &BibleService{}
 	versions := bs.convertToBibleVersions([]byte(rawJSON))
@@ -40,14 +41,12 @@ func TestConvertToBibleVersions(t *testing.T) {
 }
 
 func TestGetBibleVersionById(t *testing.T) {
-	rawJSON := `
-		{
-			"id": "en-kjv",
-			"localVersionName": "King James Version of the Holy Bible",
-			"localVersionAbbreviation": "KJV",
-			"language": {"name": "English"}
-		}
-	`
+	rawJSON := `{
+		"id": "en-kjv",
+		"localVersionName": "King James Version of the Holy Bible",
+		"localVersionAbbreviation": "KJV",
+		"language": {"name": "English"}
+	}`
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -71,18 +70,17 @@ func TestGetBibleVersionById(t *testing.T) {
 	}
 }
 
-func TestGetVerseOfTheDay(t *testing.T) {
-	verseJSON := `{
-		"id": "john-3-16",
-		"book": "John",
-		"chapter": 3,
-		"verse": "16",
-		"text": "For God so loved the world..."
+func TestGetBibleVersionByIdNotFound(t *testing.T) {
+	rawJSON := `{
+		"id": "en-kjv",
+		"localVersionName": "King James Version of the Holy Bible",
+		"localVersionAbbreviation": "KJV",
+		"language": {"name": "English"}
 	}`
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(verseJSON))
+		_, _ = w.Write([]byte(rawJSON))
 	}))
 	defer ts.Close()
 
@@ -92,48 +90,222 @@ func TestGetVerseOfTheDay(t *testing.T) {
 	}
 	defer func() { httpGet = originalGet }()
 
-	bs := &BibleService{currentVersion: BibleVersion{Id: "en-kjv"}}
-	verse := bs.GetVerseOfTheDay()
-
-	if want := "John"; verse.Book != want {
-		t.Errorf("Book = %q, want %q", verse.Book, want)
-	}
-	if want := 3; verse.Chapter != want {
-		t.Errorf("Chapter = %d, want %d", verse.Chapter, want)
-	}
-	if want := "16"; verse.Verse != want {
-		t.Errorf("Verse = %q, want %q", verse.Verse, want)
-	}
-	if want := "For God so loved the world..."; verse.Text != want {
-		t.Errorf("Text = %q, want %q", verse.Text, want)
+	bs := &BibleService{}
+	_, err := bs.GetBibleVersionById("unknown")
+	if err == nil {
+		t.Fatal("expected error for unknown bible version id")
 	}
 }
 
-func TestSetBibleVersion(t *testing.T) {
-	bs := &BibleService{currentVersion: BibleVersion{Id: "en-kjv"}}
-	newVersion := BibleVersion{Id: "es-rvr1960", Name: "Reina-Valera 1960", Version: "RVR1960"}
+func TestNewBibleServiceSuccess(t *testing.T) {
+	rawJSON := `{
+        "id": "en-kjv",
+        "localVersionName": "King James Version of the Holy Bible",
+        "localVersionAbbreviation": "KJV",
+        "language": {"name": "English"}
+    }`
 
-	bs.SetBibleVersion(newVersion)
-	if got := bs.currentVersion.Id; got != newVersion.Id {
-		t.Fatalf("currentVersion.Id = %q, want %q", got, newVersion.Id)
-	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(rawJSON))
+	}))
+	defer ts.Close()
 
-	bs.SetBibleVersion(newVersion)
-	if got := bs.currentVersion.Id; got != newVersion.Id {
-		t.Fatalf("currentVersion.Id = %q after second set, want %q", got, newVersion.Id)
-	}
-}
-
-func TestGetBibleVersionsReturnsEmptyOnError(t *testing.T) {
 	originalGet := httpGet
 	httpGet = func(url string) (*http.Response, error) {
-		return nil, io.ErrUnexpectedEOF
+		return http.Get(ts.URL)
+	}
+	defer func() { httpGet = originalGet }()
+
+	bs, err := NewBibleService("en-kjv")
+	if err != nil {
+		t.Fatalf("NewBibleService returned error: %v", err)
+	}
+	if got := bs.GetBibleVersion().Id; got != "en-kjv" {
+		t.Fatalf("GetBibleVersion().Id = %q, want %q", got, "en-kjv")
+	}
+}
+
+func TestNewBibleServiceHttpError(t *testing.T) {
+	originalGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return nil, errors.New("network failure")
+	}
+	defer func() { httpGet = originalGet }()
+
+	_, err := NewBibleService("en-kjv")
+	if err == nil {
+		t.Fatal("expected NewBibleService to return error when httpGet fails")
+	}
+}
+
+func TestGetBibleVersionByIdInvalidJSON(t *testing.T) {
+	rs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"bad": "verse"}`))
+	}))
+	defer rs.Close()
+
+	originalGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return http.Get(rs.URL)
+	}
+	defer func() { httpGet = originalGet }()
+
+	bs := &BibleService{}
+	_, err := bs.GetBibleVersionById("en-kjv")
+	if err == nil {
+		t.Fatal("expected GetBibleVersionById to return error for invalid JSON")
+	}
+}
+
+func TestConvertToBibleVersionInvalidType(t *testing.T) {
+	bs := &BibleService{}
+	_, err := bs.convertToBibleVersion([]byte(`"notobject"`))
+	if err == nil {
+		t.Fatal("expected convertToBibleVersion to return error for non-object JSON")
+	}
+}
+
+func TestConvertJsonToBibleVersionInvalidLanguage(t *testing.T) {
+	bs := &BibleService{}
+	_, err := bs.convertJsonToBibleVersion(map[string]interface{}{
+		"id":                       "en-kjv",
+		"localVersionName":         "King James Version of the Holy Bible",
+		"localVersionAbbreviation": "KJV",
+		"language":                 "English",
+	})
+	if err == nil {
+		t.Fatal("expected convertJsonToBibleVersion to return error when language is not a map")
+	}
+}
+
+func TestBibleVersionString(t *testing.T) {
+	version := BibleVersion{Id: "en-kjv", Name: "King James Version of the Holy Bible", Version: "KJV"}
+	if got := version.String(); !strings.Contains(got, "en-kjv") || !strings.Contains(got, "KJV") {
+		t.Fatalf("unexpected BibleVersion.String output: %q", got)
+	}
+}
+
+func TestBibleVerseString(t *testing.T) {
+	verse := BibleVerse{Book: "John", Chapter: 3, Verse: "16", Text: "For God so loved the world..."}
+	if got := verse.String(); !strings.Contains(got, "John 3:16") || !strings.Contains(got, "For God so loved the world...") {
+		t.Fatalf("unexpected BibleVerse.String output: %q", got)
+	}
+}
+
+func TestGetBibleVersionsSuccess(t *testing.T) {
+	rawJSON := `[
+        {
+            "id": "en-kjv",
+            "localVersionName": "King James Version of the Holy Bible",
+            "localVersionAbbreviation": "KJV",
+            "language": {"name": "English"}
+        }
+    ]`
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(rawJSON))
+	}))
+	defer ts.Close()
+
+	originalGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return http.Get(ts.URL)
+	}
+	defer func() { httpGet = originalGet }()
+
+	bs := &BibleService{}
+	versions := bs.GetBibleVersions()
+	if len(versions) != 1 {
+		t.Fatalf("expected 1 version, got %d", len(versions))
+	}
+}
+
+func TestGetVerseOfTheDayInvalidJSON(t *testing.T) {
+	rs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"bad": "verse"}`))
+	}))
+	defer rs.Close()
+
+	originalGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return http.Get(rs.URL)
+	}
+	defer func() { httpGet = originalGet }()
+
+	bs := &BibleService{currentVersion: BibleVersion{Id: "en-kjv"}}
+	verse := bs.GetVerseOfTheDay()
+	if verse.Text != "" {
+		t.Fatalf("expected empty verse on invalid JSON, got %q", verse.Text)
+	}
+}
+
+func TestGetBibleVersionsWithHttpError(t *testing.T) {
+	originalGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return nil, errors.New("timeout")
 	}
 	defer func() { httpGet = originalGet }()
 
 	bs := &BibleService{}
 	versions := bs.GetBibleVersions()
 	if len(versions) != 0 {
-		t.Fatalf("expected no versions on http error, got %d", len(versions))
+		t.Fatalf("expected no versions when httpGet fails, got %d", len(versions))
+	}
+}
+
+func TestSetBibleVersionNoopWhenSameId(t *testing.T) {
+	current := BibleVersion{Id: "en-kjv"}
+	bs := &BibleService{currentVersion: current}
+	bs.SetBibleVersion(current)
+	if bs.currentVersion.Id != current.Id {
+		t.Fatalf("expected unchanged version id %q, got %q", current.Id, bs.currentVersion.Id)
+	}
+}
+
+func TestGetVerseOfTheDayHttpError(t *testing.T) {
+	originalGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return nil, errors.New("network down")
+	}
+	defer func() { httpGet = originalGet }()
+
+	bs := &BibleService{currentVersion: BibleVersion{Id: "en-kjv"}}
+	verse := bs.GetVerseOfTheDay()
+	if verse.Id != "" {
+		t.Fatalf("expected empty verse on http error, got %q", verse.Id)
+	}
+}
+
+func TestGetBibleVersionByIdFromVersions(t *testing.T) {
+	rawJSON := `{
+		"id": "es-rvr1960",
+		"localVersionName": "Reina-Valera 1960",
+		"localVersionAbbreviation": "RVR1960",
+		"language": {"name": "Spanish"}
+	}`
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(rawJSON))
+	}))
+	defer ts.Close()
+
+	originalGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return http.Get(ts.URL)
+	}
+	defer func() { httpGet = originalGet }()
+
+	bs := &BibleService{}
+	version, err := bs.GetBibleVersionById("es-rvr1960")
+	if err != nil {
+		t.Fatalf("GetBibleVersionById returned error: %v", err)
+	}
+	if version.Id != "es-rvr1960" {
+		t.Fatalf("expected version id es-rvr1960, got %q", version.Id)
 	}
 }

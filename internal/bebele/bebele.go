@@ -118,6 +118,10 @@ func (bs *BibleService) GetBibleVersionById(bibleVersionId string) (BibleVersion
 		return BibleVersion{}, fmt.Errorf("Error converting bible version JSON: %v\n", err)
 	}
 
+	if version.Id != bibleVersionId {
+		return BibleVersion{}, fmt.Errorf("Bible version not found: %s\n", bibleVersionId)
+	}
+
 	return version, nil
 }
 
