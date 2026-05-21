@@ -55,13 +55,13 @@ func fetchJsonDataFrom(url string, outputParam *any) error {
 	return nil
 }
 
-func (bs *BibleService) getRandomBookBy(bibleVersionId string) string {
+func (bs *BibleService) getRandomBookBy(bibleVersionId string) BibleBook {
 	fmt.Printf("Getting books for bible version %s\n", bibleVersionId)
 	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books", bibleVersionId)
 	var data any
 	if err := fetchJsonDataFrom(url, &data); err != nil {
 		fmt.Printf("Error fetching books: %v\n", err)
-		return ""
+		return BibleBook{}
 	}
 
 	var books []string
@@ -73,20 +73,22 @@ func (bs *BibleService) getRandomBookBy(bibleVersionId string) string {
 	}
 	if len(books) == 0 {
 		fmt.Println("Error parsing books")
-		return ""
+		return BibleBook{}
 	}
 
 	bookIndex := rand.IntN(len(books))
-	return books[bookIndex]
+	book := BibleBook{}
+	book.Name = books[bookIndex]
+	return book
 }
 
-func (bs *BibleService) getRandomChapterBy(bibleVersionId string, bookName string) string {
+func (bs *BibleService) getRandomChapterBy(bibleVersionId string, bookName string) BibleChapter {
 	fmt.Printf("Getting chapters for bible version %s book %s\n", bibleVersionId, bookName)
 	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books/%s/chapters", bibleVersionId, bookName)
 	var data any
 	if err := fetchJsonDataFrom(url, &data); err != nil {
 		fmt.Printf("Error fetching chapters: %v\n", err)
-		return ""
+		return BibleChapter{}
 	}
 
 	var chapters []string
@@ -100,15 +102,17 @@ func (bs *BibleService) getRandomChapterBy(bibleVersionId string, bookName strin
 	}
 	if len(chapters) == 0 {
 		fmt.Println("Error parsing chapters")
-		return ""
+		return BibleChapter{}
 	}
 	chapterIndex := rand.IntN(len(chapters))
-	return chapters[chapterIndex]
+	chapter := BibleChapter{}
+	chapter.Name = chapters[chapterIndex]
+	return chapter
 }
 
-func (bs *BibleService) getRandomVerseBy(bibleVersionId string, bookName string, chapter string) BibleVerse {
-	fmt.Printf("Getting verses for bible version %s book %s chapter %s\n", bibleVersionId, bookName, chapter)
-	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s.json", bibleVersionId, bookName, chapter)
+func (bs *BibleService) getRandomVerseBy(bibleVersionId string, bookName string, chapterName string) BibleVerse {
+	fmt.Printf("Getting verses for bible version %s book %s chapter %s\n", bibleVersionId, bookName, chapterName)
+	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s.json", bibleVersionId, bookName, chapterName)
 	var data any
 	if err := fetchJsonDataFrom(url, &data); err != nil {
 		fmt.Printf("Error fetching books: %v\n", err)
@@ -144,8 +148,8 @@ func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are us
 		return bs.verseOfTheDay
 	}
 	book := bs.getRandomBookBy(bs.currentVersion.Id)
-	chapter := bs.getRandomChapterBy(bs.currentVersion.Id, book)
-	bs.verseOfTheDay = bs.getRandomVerseBy(bs.currentVersion.Id, book, chapter)
+	chapter := bs.getRandomChapterBy(bs.currentVersion.Id, book.Name)
+	bs.verseOfTheDay = bs.getRandomVerseBy(bs.currentVersion.Id, book.Name, chapter.Name)
 	return bs.verseOfTheDay
 }
 
@@ -260,4 +264,12 @@ type BibleVerse struct {
 
 func (v BibleVerse) String() string {
 	return fmt.Sprintf("Verse of the day: %s %s:%s - %s", v.Book, v.Chapter, v.Verse, v.Text)
+}
+
+type BibleBook struct {
+	Name string `json:"name"`
+}
+
+type BibleChapter struct {
+	Name string `json:"name"`
 }
