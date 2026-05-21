@@ -31,13 +31,14 @@ type BibleChapter struct {
 
 type BibleVerse struct {
 	Id      string       `json:"id"`
+	Version BibleVersion `json:"version"`
 	Book    BibleBook    `json:"book"`
 	Chapter BibleChapter `json:"chapter"`
 	Text    string       `json:"text"`
 }
 
 func (v BibleVerse) String() string {
-	return fmt.Sprintf("%s %s:%s - %s", v.Book.Id, v.Chapter.Id, v.Id, v.Text)
+	return fmt.Sprintf("(%s) %s %s:%s - %s", v.Version.Id, v.Book.Id, v.Chapter.Id, v.Id, v.Text)
 }
 
 type BibleService interface {
@@ -171,6 +172,7 @@ func (bs WldehBibleService) GetVersesBy(versionId string, bookId string, chapter
 					Chapter: BibleChapter{
 						Id: item["chapter"].(string),
 					},
+					Version: bs.currentVersion,
 				}
 				verses = append(verses, verse)
 			}
@@ -198,6 +200,7 @@ func (bs WldehBibleService) GetVerseBy(versionId string, bookId string, chapterI
 		verse.Chapter = BibleChapter{
 			Id: item["chapter"].(string),
 		}
+		verse.Version = bs.currentVersion
 	}
 
 	return verse, nil
