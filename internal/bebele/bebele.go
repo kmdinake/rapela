@@ -64,9 +64,10 @@ type WldehBibleService struct {
 
 var httpGet = http.Get
 
-func (bs WldehBibleService) SetBibleVersion(version BibleVersion) error {
+func (bs *WldehBibleService) SetBibleVersion(version BibleVersion) error { // Notice that we are using a pointer receiver here, which allows us to modify the state of the struct
 	if bs.currentVersion.Id != version.Id {
 		bs.currentVersion = version
+		bs.verseOfTheDay = BibleVerse{}
 		return nil
 	}
 	return fmt.Errorf("Bible version %s already set", version.Id)
@@ -206,7 +207,7 @@ func (bs WldehBibleService) GetVerseBy(versionId string, bookId string, chapterI
 	return verse, nil
 }
 
-func (bs WldehBibleService) GetVerseOfTheDay() BibleVerse {
+func (bs *WldehBibleService) GetVerseOfTheDay() BibleVerse {
 	if bs.verseOfTheDay.Id != "" {
 		return bs.verseOfTheDay
 	}
@@ -327,7 +328,7 @@ func (bs WldehBibleService) convertJsonToBibleVersion(jsonData interface{}) (Bib
 // endregion
 
 func NewBibleService(bibleVersionId string) (BibleService, error) {
-	bs := WldehBibleService{}
+	var bs BibleService = &WldehBibleService{}
 
 	version, err := bs.GetBibleVersionById(bibleVersionId)
 	if err != nil {
@@ -338,6 +339,10 @@ func NewBibleService(bibleVersionId string) (BibleService, error) {
 		return nil, fmt.Errorf("Bible version not found: %s", bibleVersionId)
 	}
 
-	bs.currentVersion = version
+	err = bs.SetBibleVersion(version)
+	if err != nil {
+		return nil, err
+	}
+
 	return bs, nil
 }

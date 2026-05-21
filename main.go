@@ -42,4 +42,7 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("Current Bible Version after setting: %s\n", version)
+
+	verseOfTheDay = bs.GetVerseOfTheDay()
+	fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
 }
