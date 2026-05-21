@@ -286,7 +286,7 @@ func (bs WldehBibleService) fetchJsonDataFrom(url string, outputParam *any) erro
 }
 
 func (bs WldehBibleService) convertToBibleVersions(data interface{}) []BibleVersion {
-	// fmt.Println("Converting to bible version collection...")
+	fmt.Println("Converting to bible version collection...")
 	var versions []BibleVersion
 	for _, v := range data.([]interface{}) {
 		version, err := bs.convertJsonToBibleVersion(v)
@@ -299,7 +299,7 @@ func (bs WldehBibleService) convertToBibleVersions(data interface{}) []BibleVers
 }
 
 func (bs WldehBibleService) convertToBibleVersion(data interface{}) (BibleVersion, error) {
-	// fmt.Println("Converting to bible version...")
+	fmt.Println("Converting to bible version...")
 	var version BibleVersion
 	var err error
 	version, err = bs.convertJsonToBibleVersion(data)
