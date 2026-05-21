@@ -9,30 +9,256 @@ import (
 	"strings"
 )
 
-var httpGet = http.Get
+// region Core Type definitions
+type BibleVersion struct {
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Version  string `json:"version"`
+	Language string `json:"language"`
+}
 
-type BibleService struct {
+func (v BibleVersion) String() string {
+	return fmt.Sprintf("%s: %s (%s)", v.Id, v.Name, v.Version)
+}
+
+type BibleBook struct {
+	Id string `json:"id"`
+}
+
+type BibleChapter struct {
+	Id string `json:"id"`
+}
+
+type BibleVerse struct {
+	Id      string       `json:"id"`
+	Book    BibleBook    `json:"book"`
+	Chapter BibleChapter `json:"chapter"`
+	Text    string       `json:"text"`
+}
+
+func (v BibleVerse) String() string {
+	return fmt.Sprintf("%s %s:%s - %s", v.Book.Id, v.Chapter.Id, v.Id, v.Text)
+}
+
+type BibleService interface {
+	SetBibleVersion(version BibleVersion) error
+	GetBibleVersion() (BibleVersion, error)
+	GetBibleVersions() ([]BibleVersion, error)
+	GetBibleVersionById(versionId string) (BibleVersion, error)
+	GetBooksBy(versionId string) ([]BibleBook, error)
+	GetChaptersBy(versionId string, bookId string) ([]BibleChapter, error)
+	GetVersesBy(versionId string, bookId string, chapterId string) ([]BibleVerse, error)
+	GetVerseBy(versionId string, bookId string, chapterId string, verseId string) (BibleVerse, error)
+	GetVerseOfTheDay() BibleVerse
+}
+
+// endregion
+
+// region Wldeh Bible Service Implementation
+// API origin https://github.com/wldeh/bible-api
+type WldehBibleService struct {
 	verseOfTheDay  BibleVerse
 	currentVersion BibleVersion
 }
 
-func NewBibleService(bibleVersionId string) (*BibleService, error) {
-	bs := &BibleService{}
+var httpGet = http.Get
 
-	version, err := bs.GetBibleVersionById(bibleVersionId)
-	if err != nil {
-		return nil, err
+func (bs WldehBibleService) SetBibleVersion(version BibleVersion) error {
+	if bs.currentVersion.Id != version.Id {
+		bs.currentVersion = version
+		return nil
 	}
-
-	if version.Id == "" {
-		return nil, fmt.Errorf("Bible version not found: %s", bibleVersionId)
-	}
-
-	bs.currentVersion = version
-	return bs, nil
+	return fmt.Errorf("Bible version %s already set", version.Id)
 }
 
-func fetchJsonDataFrom(url string, outputParam *any) error {
+func (bs WldehBibleService) GetBibleVersion() (BibleVersion, error) {
+	if bs.currentVersion.Id == "" {
+		return BibleVersion{}, fmt.Errorf("No bible version set")
+	}
+	return bs.currentVersion, nil
+}
+
+func (bs WldehBibleService) GetBibleVersions() ([]BibleVersion, error) {
+	url := "https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/bibles.json"
+	var data any
+	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
+		return []BibleVersion{}, fmt.Errorf("Error fetching bible versions: %v\n", err)
+	}
+
+	return bs.convertToBibleVersions(data), nil
+}
+
+func (bs WldehBibleService) GetBibleVersionById(versionId string) (BibleVersion, error) {
+	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/%s/%s.json", versionId, versionId)
+	var data any
+	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
+		return BibleVersion{}, fmt.Errorf("Error fetching bible version %s: %v\n", versionId, err)
+	}
+
+	version, err := bs.convertToBibleVersion(data)
+	if err != nil {
+		return BibleVersion{}, fmt.Errorf("Error converting bible version %s JSON: %v\n", versionId, err)
+	}
+
+	if version.Id != versionId {
+		return BibleVersion{}, fmt.Errorf("Bible version not found: %s\n", versionId)
+	}
+
+	return version, nil
+}
+
+func (bs WldehBibleService) GetBooksBy(versionId string) ([]BibleBook, error) {
+	fmt.Printf("Getting books for bible version %s\n", versionId)
+	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books", versionId)
+	var data any
+	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
+		return []BibleBook{}, fmt.Errorf("Error fetching %s books: %v\n", versionId, err)
+	}
+
+	var books []BibleBook
+	for _, b := range data.([]interface{}) {
+		if item, ok := b.(map[string]interface{}); ok {
+			book := BibleBook{}
+			book.Id = item["name"].(string)
+			books = append(books, book)
+		}
+	}
+
+	return books, nil
+}
+
+func (bs WldehBibleService) GetChaptersBy(versionId string, bookId string) ([]BibleChapter, error) {
+	fmt.Printf("Getting chapters for bible version %s book %s\n", versionId, bookId)
+	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books/%s/chapters", versionId, bookId)
+	var data any
+	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
+		return []BibleChapter{}, fmt.Errorf("Error fetching %s book %s chapters: %v\n", versionId, bookId, err)
+	}
+
+	var chapters []BibleChapter
+	for _, c := range data.([]interface{}) {
+		if item, ok := c.(map[string]interface{}); ok {
+			chapterName := item["name"].(string)
+			if !strings.Contains(chapterName, ".json") {
+				chapter := BibleChapter{}
+				chapter.Id = item["name"].(string)
+				chapters = append(chapters, chapter)
+			}
+		}
+	}
+
+	return chapters, nil
+}
+
+func (bs WldehBibleService) GetVersesBy(versionId string, bookId string, chapterId string) ([]BibleVerse, error) {
+	fmt.Printf("Getting verses for bible version %s book %s chapter %s\n", versionId, bookId, chapterId)
+	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s.json", versionId, bookId, chapterId)
+	var data any
+	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
+		return []BibleVerse{}, fmt.Errorf("Error fetching bible version %s book %s chapter %s verses: %v\n", versionId, bookId, chapterId, err)
+	}
+
+	var verses []BibleVerse
+	if dataMap, ok := data.(map[string]interface{}); ok {
+		for _, v := range dataMap["data"].([]interface{}) {
+			if item, ok := v.(map[string]interface{}); ok {
+				verse := BibleVerse{
+					Id:   item["verse"].(string),
+					Text: item["text"].(string),
+					Book: BibleBook{
+						Id: item["book"].(string),
+					},
+					Chapter: BibleChapter{
+						Id: item["chapter"].(string),
+					},
+				}
+				verses = append(verses, verse)
+			}
+		}
+	}
+
+	return verses, nil
+}
+
+func (bs WldehBibleService) GetVerseBy(versionId string, bookId string, chapterId string, verseId string) (BibleVerse, error) {
+	fmt.Printf("Getting verse for bible version %s book %s chapter %s verse %s\n", versionId, bookId, chapterId, verseId)
+	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s/verses/%s.json", versionId, bookId, chapterId, verseId)
+	var data any
+	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
+		return BibleVerse{}, fmt.Errorf("Error fetching bible version %s book %s chapter %s verse %s: %v\n", versionId, bookId, chapterId, verseId, err)
+	}
+
+	verse := BibleVerse{}
+	if item, ok := data.(map[string]interface{}); ok {
+		verse.Id = item["verse"].(string)
+		verse.Text = item["text"].(string)
+		verse.Book = BibleBook{
+			Id: item["book"].(string),
+		}
+		verse.Chapter = BibleChapter{
+			Id: item["chapter"].(string),
+		}
+	}
+
+	return verse, nil
+}
+
+func (bs WldehBibleService) GetVerseOfTheDay() BibleVerse {
+	if bs.verseOfTheDay.Id != "" {
+		return bs.verseOfTheDay
+	}
+	book := bs.getRandomBookBy(bs.currentVersion.Id)
+	chapter := bs.getRandomChapterBy(bs.currentVersion.Id, book.Id)
+	bs.verseOfTheDay = bs.getRandomVerseBy(bs.currentVersion.Id, book.Id, chapter.Id)
+	return bs.verseOfTheDay
+}
+
+// endregion
+
+// region Wldeh Bible Service Utility Methods
+func (bs WldehBibleService) getRandomBookBy(versionId string) BibleBook {
+	books, err := bs.GetBooksBy(versionId)
+	if err != nil {
+		fmt.Println(err)
+		return BibleBook{}
+	}
+	if len(books) == 0 {
+		fmt.Println("No books found")
+		return BibleBook{}
+	}
+
+	return books[rand.IntN(len(books))]
+}
+
+func (bs WldehBibleService) getRandomChapterBy(versionId string, bookId string) BibleChapter {
+	chapters, err := bs.GetChaptersBy(versionId, bookId)
+	if err != nil {
+		fmt.Println(err)
+		return BibleChapter{}
+	}
+	if len(chapters) == 0 {
+		fmt.Println("No chapters found")
+		return BibleChapter{}
+	}
+
+	return chapters[rand.IntN(len(chapters))]
+}
+
+func (bs WldehBibleService) getRandomVerseBy(versionId string, bookId string, chapterId string) BibleVerse {
+	verses, err := bs.GetVersesBy(versionId, bookId, chapterId)
+	if err != nil {
+		fmt.Println(err)
+		return BibleVerse{}
+	}
+	if len(verses) == 0 {
+		fmt.Println("No verses found")
+		return BibleVerse{}
+	}
+
+	return verses[rand.IntN(len(verses))]
+}
+
+func (bs WldehBibleService) fetchJsonDataFrom(url string, outputParam *any) error {
 	resp, err := httpGet(url)
 	if err != nil {
 		return err
@@ -55,156 +281,8 @@ func fetchJsonDataFrom(url string, outputParam *any) error {
 	return nil
 }
 
-func (bs *BibleService) getRandomBookBy(bibleVersionId string) BibleBook {
-	fmt.Printf("Getting books for bible version %s\n", bibleVersionId)
-	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books", bibleVersionId)
-	var data any
-	if err := fetchJsonDataFrom(url, &data); err != nil {
-		fmt.Printf("Error fetching books: %v\n", err)
-		return BibleBook{}
-	}
-
-	var books []string
-	for _, b := range data.([]interface{}) {
-		if item, ok := b.(map[string]interface{}); ok {
-			bookName := item["name"].(string)
-			books = append(books, bookName)
-		}
-	}
-	if len(books) == 0 {
-		fmt.Println("Error parsing books")
-		return BibleBook{}
-	}
-
-	bookIndex := rand.IntN(len(books))
-	book := BibleBook{}
-	book.Name = books[bookIndex]
-	return book
-}
-
-func (bs *BibleService) getRandomChapterBy(bibleVersionId string, bookName string) BibleChapter {
-	fmt.Printf("Getting chapters for bible version %s book %s\n", bibleVersionId, bookName)
-	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books/%s/chapters", bibleVersionId, bookName)
-	var data any
-	if err := fetchJsonDataFrom(url, &data); err != nil {
-		fmt.Printf("Error fetching chapters: %v\n", err)
-		return BibleChapter{}
-	}
-
-	var chapters []string
-	for _, c := range data.([]interface{}) {
-		if item, ok := c.(map[string]interface{}); ok {
-			chapterName := item["name"].(string)
-			if !strings.Contains(chapterName, ".json") {
-				chapters = append(chapters, chapterName)
-			}
-		}
-	}
-	if len(chapters) == 0 {
-		fmt.Println("Error parsing chapters")
-		return BibleChapter{}
-	}
-	chapterIndex := rand.IntN(len(chapters))
-	chapter := BibleChapter{}
-	chapter.Name = chapters[chapterIndex]
-	return chapter
-}
-
-func (bs *BibleService) getRandomVerseBy(bibleVersionId string, bookName string, chapterName string) BibleVerse {
-	fmt.Printf("Getting verses for bible version %s book %s chapter %s\n", bibleVersionId, bookName, chapterName)
-	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s.json", bibleVersionId, bookName, chapterName)
-	var data any
-	if err := fetchJsonDataFrom(url, &data); err != nil {
-		fmt.Printf("Error fetching books: %v\n", err)
-		return BibleVerse{}
-	}
-
-	var verses []BibleVerse
-	if dataMap, ok := data.(map[string]interface{}); ok {
-		for _, v := range dataMap["data"].([]interface{}) {
-			if item, ok := v.(map[string]interface{}); ok {
-				verse := BibleVerse{
-					Book:    item["book"].(string),
-					Chapter: item["chapter"].(string),
-					Verse:   item["verse"].(string),
-					Text:    item["text"].(string),
-				}
-				verse.Id = fmt.Sprintf("%s-%s-%s", verse.Book, verse.Chapter, verse.Verse)
-				verses = append(verses, verse)
-			}
-		}
-	}
-	if len(verses) == 0 {
-		fmt.Println("Error parsing verses")
-		return BibleVerse{}
-	}
-	verseIndex := rand.IntN(len(verses))
-	return verses[verseIndex]
-}
-
-// Get a random verse from the bible
-func (bs *BibleService) GetVerseOfTheDay() BibleVerse { // Notice that we are using a pointer receiver here, which allows us to modify the state of the BibleService struct
-	if bs.verseOfTheDay.Id != "" {
-		return bs.verseOfTheDay
-	}
-	book := bs.getRandomBookBy(bs.currentVersion.Id)
-	chapter := bs.getRandomChapterBy(bs.currentVersion.Id, book.Name)
-	bs.verseOfTheDay = bs.getRandomVerseBy(bs.currentVersion.Id, book.Name, chapter.Name)
-	return bs.verseOfTheDay
-}
-
-// Get a list of available Bible versions
-func (bs *BibleService) GetBibleVersions() []BibleVersion {
-	fmt.Println("Getting bible versions...")
-	url := "https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/bibles.json"
-	var data any
-	if err := fetchJsonDataFrom(url, &data); err != nil {
-		fmt.Printf("Error fetching bible versions: %v\n", err)
-		return []BibleVersion{}
-	}
-
-	return bs.convertToBibleVersions(data)
-}
-
-// Get a bible version by its ID
-func (bs *BibleService) GetBibleVersionById(bibleVersionId string) (BibleVersion, error) {
-	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/%s/%s.json", bibleVersionId, bibleVersionId)
-	var data any
-	if err := fetchJsonDataFrom(url, &data); err != nil {
-		return BibleVersion{}, fmt.Errorf("Error fetching bible versions: %v\n", err)
-	}
-
-	version, err := bs.convertToBibleVersion(data)
-	if err != nil {
-		return BibleVersion{}, fmt.Errorf("Error converting bible version JSON: %v\n", err)
-	}
-
-	if version.Id != bibleVersionId {
-		return BibleVersion{}, fmt.Errorf("Bible version not found: %s\n", bibleVersionId)
-	}
-
-	return version, nil
-}
-
-// Set the current Bible version to be used
-func (bs *BibleService) SetBibleVersion(version BibleVersion) {
-	if bs.currentVersion.Id != version.Id {
-		bs.currentVersion = version
-	}
-}
-
-// Get the current Bible version being used
-func (bs *BibleService) GetBibleVersion() BibleVersion {
-	return bs.currentVersion
-}
-
-// Get a specific verse by its reference (book, chapter, verse)
-func (bs *BibleService) GetVerseByReference(book string, chapter int, verse int) BibleVerse {
-	panic("Method not implemented")
-}
-
-func (bs *BibleService) convertToBibleVersions(data interface{}) []BibleVersion {
-	fmt.Println("Converting to bible version collection...")
+func (bs WldehBibleService) convertToBibleVersions(data interface{}) []BibleVersion {
+	// fmt.Println("Converting to bible version collection...")
 	var versions []BibleVersion
 	for _, v := range data.([]interface{}) {
 		version, err := bs.convertJsonToBibleVersion(v)
@@ -216,8 +294,8 @@ func (bs *BibleService) convertToBibleVersions(data interface{}) []BibleVersion 
 	return versions
 }
 
-func (bs *BibleService) convertToBibleVersion(data interface{}) (BibleVersion, error) {
-	fmt.Println("Converting to bible version...")
+func (bs WldehBibleService) convertToBibleVersion(data interface{}) (BibleVersion, error) {
+	// fmt.Println("Converting to bible version...")
 	var version BibleVersion
 	var err error
 	version, err = bs.convertJsonToBibleVersion(data)
@@ -227,7 +305,7 @@ func (bs *BibleService) convertToBibleVersion(data interface{}) (BibleVersion, e
 	return version, nil
 }
 
-func (bs *BibleService) convertJsonToBibleVersion(jsonData interface{}) (BibleVersion, error) {
+func (bs WldehBibleService) convertJsonToBibleVersion(jsonData interface{}) (BibleVersion, error) {
 	if bibleVersionMap, versionMapOk := jsonData.(map[string]interface{}); versionMapOk {
 		bibleLanguageMap, bibleLanguageMapOk := bibleVersionMap["language"].(map[string]interface{})
 		if !bibleLanguageMapOk {
@@ -243,33 +321,20 @@ func (bs *BibleService) convertJsonToBibleVersion(jsonData interface{}) (BibleVe
 	return BibleVersion{}, fmt.Errorf("Error asserting bible version data: %T\n", jsonData)
 }
 
-type BibleVersion struct {
-	Id       string `json:"id"`
-	Name     string `json:"name"`
-	Version  string `json:"version"`
-	Language string `json:"language"`
-}
+// endregion
 
-func (v BibleVersion) String() string {
-	return fmt.Sprintf("- %s: %s (%s)", v.Id, v.Name, v.Version)
-}
+func NewBibleService(bibleVersionId string) (BibleService, error) {
+	bs := WldehBibleService{}
 
-type BibleVerse struct {
-	Id      string `json:"id"`
-	Book    string `json:"book"`
-	Chapter string `json:"chapter"`
-	Verse   string `json:"verse"`
-	Text    string `json:"text"`
-}
+	version, err := bs.GetBibleVersionById(bibleVersionId)
+	if err != nil {
+		return nil, err
+	}
 
-func (v BibleVerse) String() string {
-	return fmt.Sprintf("Verse of the day: %s %s:%s - %s", v.Book, v.Chapter, v.Verse, v.Text)
-}
+	if version.Id == "" {
+		return nil, fmt.Errorf("Bible version not found: %s", bibleVersionId)
+	}
 
-type BibleBook struct {
-	Name string `json:"name"`
-}
-
-type BibleChapter struct {
-	Name string `json:"name"`
+	bs.currentVersion = version
+	return bs, nil
 }

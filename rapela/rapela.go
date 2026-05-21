@@ -8,9 +8,13 @@ type BibleVersion = bebele.BibleVersion
 
 type BibleVerse = bebele.BibleVerse
 
-var bibleService *BibleService
+type BibleChapter = bebele.BibleChapter
 
-func NewBibleService() (*BibleService, error) {
+type BibleBook = bebele.BibleBook
+
+var bibleService BibleService
+
+func NewBibleService() (BibleService, error) {
 	if bibleService == nil {
 		var err error
 		bibleService, err = bebele.NewBibleService("en-kjv")

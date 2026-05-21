@@ -18,7 +18,10 @@ func TestNewBibleService(t *testing.T) {
 			t.Fatal("NewBibleService() returned nil service")
 		}
 
-		version := bs.GetBibleVersion()
+		version, err := bs.GetBibleVersion()
+		if err != nil {
+			t.Fatalf("GetBibleVersion() returned error: %v", err)
+		}
 		if got, want := version.Id, "en-kjv"; got != want {
 			t.Errorf("GetBibleVersion().Id = %q, want %q", got, want)
 		}

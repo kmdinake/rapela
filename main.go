@@ -15,19 +15,31 @@ func main() {
 
 	fmt.Println("Bible Service created successfully!")
 
-	fmt.Printf("Current Bible Version: %s\n", bs.GetBibleVersion())
+	version, err := bs.GetBibleVersion()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Current Bible Version: %s\n", version)
 
-	fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\n%s\n", bs.GetVerseOfTheDay())
+	verseOfTheDay := bs.GetVerseOfTheDay()
+	fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
 
-	versions := bs.GetBibleVersions()
+	versions, err := bs.GetBibleVersions()
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("Available Bible Versions:")
 	for _, version := range versions {
-		fmt.Println(version)
+		fmt.Printf("- %s\n", version)
 	}
 
 	randomVersion := versions[rand.IntN(len(versions))]
 	fmt.Printf("Setting Bible version to: %s\n", randomVersion)
 	bs.SetBibleVersion(randomVersion)
 
-	fmt.Printf("Current Bible Version after setting: %s\n", bs.GetBibleVersion())
+	version, err = bs.GetBibleVersion()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Current Bible Version after setting: %s\n", version)
 }
