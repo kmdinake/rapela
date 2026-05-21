@@ -1,33 +1,48 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"math/rand/v2"
 
-type BibleVerse struct {
-	Id      int    `json:"id"`
-	Book    string `json:"book"`
-	Chapter int    `json:"chapter"`
-	Verse   int    `json:"verse"`
-	Text    string `json:"text"`
-}
-
-func (v BibleVerse) String() string {
-	return fmt.Sprintf("Verse: %d, %s %d:%d - %s", v.Id, v.Book, v.Chapter, v.Verse, v.Text)
-}
-
-func getVerse() BibleVerse {
-	fmt.Println("Getting the verse...")
-	return BibleVerse{
-		Id:      1,
-		Book:    "John",
-		Chapter: 3,
-		Verse:   16,
-		Text:    "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.",
-	}
-}
+	"github.com/kmdinake/rapela/rapela"
+)
 
 func main() {
-	var verse = getVerse()
+	bs, err := rapela.NewBibleService()
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println("Dumela ngwana waka! Tseya sebaka se go rapela.")
-	fmt.Println(verse)
+	fmt.Println("Bible Service created successfully!")
+
+	version, err := bs.GetBibleVersion()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Current Bible Version: %s\n", version)
+
+	verseOfTheDay := bs.GetVerseOfTheDay()
+	fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
+
+	versions, err := bs.GetBibleVersions()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Available Bible Versions:")
+	for _, version := range versions {
+		fmt.Printf("- %s\n", version)
+	}
+
+	randomVersion := versions[rand.IntN(len(versions))]
+	fmt.Printf("Setting Bible version to: %s\n", randomVersion)
+	bs.SetBibleVersion(randomVersion)
+
+	version, err = bs.GetBibleVersion()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Current Bible Version after setting: %s\n", version)
+
+	verseOfTheDay = bs.GetVerseOfTheDay()
+	fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
 }
