@@ -299,8 +299,8 @@ func TestGetBibleVersionsWithHttpError(t *testing.T) {
 
 	bs := WldehBibleService{}
 	versions, err := bs.GetBibleVersions()
-	if err != nil {
-		t.Fatalf("GetBibleVersions() returned error: %v", err)
+	if err == nil {
+		t.Fatalf("expected GetBibleVersions() to fail")
 	}
 	if len(versions) != 0 {
 		t.Fatalf("expected no versions when httpGet fails, got %d", len(versions))
