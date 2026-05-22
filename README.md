@@ -20,6 +20,8 @@ To set a bible version:
 rapela bible --set=<name-of-version>
 ```
 
+## Future CLI Functionality
+
 To set a language:
 ```bash
 rapela bible --lang=<language-identifier>
