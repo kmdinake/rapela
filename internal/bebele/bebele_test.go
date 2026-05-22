@@ -1,7 +1,9 @@
 package bebele
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,7 +21,9 @@ func TestConvertToBibleVersions(t *testing.T) {
     ]`
 
 	bs := WldehBibleService{}
-	versions := bs.convertToBibleVersions([]byte(rawJSON))
+	var data any
+	json.Unmarshal([]byte(rawJSON), &data)
+	versions := bs.convertToBibleVersions(data)
 
 	if len(versions) != 1 {
 		t.Fatalf("expected 1 version, got %d", len(versions))
@@ -229,13 +233,53 @@ func TestGetBibleVersionsSuccess(t *testing.T) {
 func TestGetVerseOfTheDayInvalidJSON(t *testing.T) {
 	rs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"bad": "verse"}`))
+		parts := strings.Split(r.URL.Path, "/")
+		if parts[len(parts)-1] == "chapters" {
+			_, _ = w.Write([]byte(`[{
+				"name": "1",
+				"path": "bibles/en-kjv/books/1chronicles/chapters/1",
+				"sha": "97f98e3f49951eaf7690dc21af0d021c9dfbc67a",
+				"size": 0,
+				"url": "https://api.github.com/repos/wldeh/bible-api/contents/bibles/en-kjv/books/1chronicles/chapters/1?ref=main",
+				"html_url": "https://github.com/wldeh/bible-api/tree/main/bibles/en-kjv/books/1chronicles/chapters/1",
+				"git_url": "https://api.github.com/repos/wldeh/bible-api/git/trees/97f98e3f49951eaf7690dc21af0d021c9dfbc67a",
+				"download_url": null,
+				"type": "dir",
+				"_links": {
+				"self": "https://api.github.com/repos/wldeh/bible-api/contents/bibles/en-kjv/books/1chronicles/chapters/1?ref=main",
+				"git": "https://api.github.com/repos/wldeh/bible-api/git/trees/97f98e3f49951eaf7690dc21af0d021c9dfbc67a",
+				"html": "https://github.com/wldeh/bible-api/tree/main/bibles/en-kjv/books/1chronicles/chapters/1"
+				}
+			}]`))
+		} else if parts[len(parts)-1] == "books" {
+			_, _ = w.Write([]byte(`[{
+				"name": "1chronicles",
+				"path": "bibles/en-kjv/books/1chronicles",
+				"sha": "30e45bb08b963605deff20db6efba588d58421b0",
+				"size": 0,
+				"url": "https://api.github.com/repos/wldeh/bible-api/contents/bibles/en-kjv/books/1chronicles?ref=main",
+				"html_url": "https://github.com/wldeh/bible-api/tree/main/bibles/en-kjv/books/1chronicles",
+				"git_url": "https://api.github.com/repos/wldeh/bible-api/git/trees/30e45bb08b963605deff20db6efba588d58421b0",
+				"download_url": null,
+				"type": "dir",
+				"_links": {
+				"self": "https://api.github.com/repos/wldeh/bible-api/contents/bibles/en-kjv/books/1chronicles?ref=main",
+				"git": "https://api.github.com/repos/wldeh/bible-api/git/trees/30e45bb08b963605deff20db6efba588d58421b0",
+				"html": "https://github.com/wldeh/bible-api/tree/main/bibles/en-kjv/books/1chronicles"
+				}
+			}]`))
+		} else {
+			_, _ = w.Write([]byte(`[{"bad": "verse"}]`))
+		}
 	}))
 	defer rs.Close()
 
 	originalGet := httpGet
 	httpGet = func(url string) (*http.Response, error) {
-		return http.Get(rs.URL)
+		parts := strings.Split(url, "/")
+		lastPart := parts[len(parts)-1]
+		newUrl := fmt.Sprintf("%s/%s", rs.URL, lastPart)
+		return http.Get(newUrl)
 	}
 	defer func() { httpGet = originalGet }()
 
