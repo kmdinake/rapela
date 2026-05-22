@@ -19,61 +19,47 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package main
-
-import "github.com/kmdinake/rapela/cmd"
-
-func main() {
-	cmd.Execute()
-}
-
-/*
-package main
+package cmd
 
 import (
 	"fmt"
-	"math/rand/v2"
 
 	"github.com/kmdinake/rapela/rapela"
+	"github.com/spf13/cobra"
 )
 
-func main() {
+// verseCmd represents the verse command
+var verseCmd = &cobra.Command{
+	Use:   "verse",
+	Short: "Retrieve the bible verse of the day",
+	Long: `You can retrieve the bible verse of the day by executing the following command.
+	For example: 
+	> rapela verse
+	
+	Which will display 
+	> (en-kjv) Genesis 1:1 - In the beginning God created the heaven and the earth.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("verse called")
+
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(verseCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// verseCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// verseCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	bs, err := rapela.NewBibleService()
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println("Bible Service created successfully!")
-
-	version, err := bs.GetBibleVersion()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Current Bible Version: %s\n", version)
-
 	verseOfTheDay := bs.GetVerseOfTheDay()
 	fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
-
-	versions, err := bs.GetBibleVersions()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Available Bible Versions:")
-	for _, version := range versions {
-		fmt.Printf("- %s\n", version)
-	}
-
-	randomVersion := versions[rand.IntN(len(versions))]
-	fmt.Printf("Setting Bible version to: %s\n", randomVersion)
-	bs.SetBibleVersion(randomVersion)
-
-	version, err = bs.GetBibleVersion()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Current Bible Version after setting: %s\n", version)
-
-	verseOfTheDay = bs.GetVerseOfTheDay()
-	fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
 }
-*/
