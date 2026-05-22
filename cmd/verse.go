@@ -35,12 +35,16 @@ var verseCmd = &cobra.Command{
 	Long: `You can retrieve the bible verse of the day by executing the following command.
 	For example: 
 	> rapela verse
-	
+
 	Which will display 
 	> (en-kjv) Genesis 1:1 - In the beginning God created the heaven and the earth.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("verse called")
-
+		bs, err := rapela.NewBibleService()
+		if err != nil {
+			panic(err)
+		}
+		verseOfTheDay := bs.GetVerseOfTheDay()
+		fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
 	},
 }
 
@@ -56,10 +60,4 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// verseCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	bs, err := rapela.NewBibleService()
-	if err != nil {
-		panic(err)
-	}
-	verseOfTheDay := bs.GetVerseOfTheDay()
-	fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
 }
