@@ -29,6 +29,7 @@ import (
 )
 
 var ListVersions bool
+var NewBibleVersionId string
 
 // bibleCmd represents the bible command
 var bibleCmd = &cobra.Command{
@@ -71,6 +72,34 @@ var bibleCmd = &cobra.Command{
 			}
 			return
 		}
+
+		if NewBibleVersionId != "" {
+			fmt.Printf("Setting Bible version to: %s\n", NewBibleVersionId)
+			versions, err := bs.GetBibleVersions()
+			if err != nil {
+				cobra.CheckErr(err)
+			}
+
+			var newVersion rapela.BibleVersion
+			for _, v := range versions {
+				if v.Id == NewBibleVersionId {
+					newVersion = v
+				}
+			}
+			if newVersion.Id == "" {
+				cobra.CheckErr(fmt.Errorf("Invalid bible version: %s", NewBibleVersionId))
+				return
+			}
+			bs.SetBibleVersion(newVersion)
+
+			version, err := bs.GetBibleVersion()
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("Current Bible Version after setting: %s\n", version)
+			return
+		}
+
 		version, err := bs.GetBibleVersion()
 		if err != nil {
 			cobra.CheckErr(err)
@@ -92,4 +121,5 @@ func init() {
 	// is called directly, e.g.:
 	// bibleCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	bibleCmd.Flags().BoolVarP(&ListVersions, "list-versions", "l", false, "rapela bible --list-versions or --lv")
+	bibleCmd.Flags().StringVarP(&NewBibleVersionId, "set", "s", "", "rapela bible --set=<name-of-version> or -s=<name-of-version>") // todo (keo): bind this to a config value so that on startup we use this as the default value
 }

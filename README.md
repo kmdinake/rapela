@@ -22,7 +22,7 @@ rapela bible --list-versions or -l
 
 To set a bible version:
 ```bash
-rapela bible --set=<name-of-version>
+rapela bible --set=<name-of-version> or -s=<name-of-version>
 ```
 
 ## Future CLI Functionality
