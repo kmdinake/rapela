@@ -28,6 +28,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var ListVersions bool
+
 // bibleCmd represents the bible command
 var bibleCmd = &cobra.Command{
 	Use:   "bible",
@@ -36,16 +38,42 @@ var bibleCmd = &cobra.Command{
 	For example: 
 	> rapela bible
 	
-	Which will display 
-	> en-kjv: King James Version of the Holy Bible (KJV)`,
+	Which will display the current bible version as follows:
+	> en-kjv: King James Version of the Holy Bible (KJV)
+	
+	You can see the list of bible versions by executing the following command.
+	For example: 
+	> rapela bible --list-versions or -l
+	
+	Which will display bible versions as follows:
+	> - en-engbrent: Brenton English Septuagint (engbrent)
+	  - en-oke: Targum Onkelos Etheridge (OKE)
+	  - sr-Latn-srp1865: Sveta Biblija (SRP1865)
+	  - en-gnv: Geneva Bible (GNV)
+	  - spm-akg-mkac: Mak Osɨrisira Akaman Aghuuŋ ko Iesusɨm Mbɨsevisir Gumasi (Akg-MkAc)
+	  - mgw-matumbi: Injili ya Yesu (Matumbi)
+	  - ...
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		bs, err := rapela.NewBibleService()
 		if err != nil {
-			panic(err)
+			cobra.CheckErr(err)
+		}
+
+		if ListVersions == true {
+			versions, err := bs.GetBibleVersions()
+			if err != nil {
+				cobra.CheckErr(err)
+			}
+			fmt.Println("Available Bible Versions:")
+			for _, version := range versions {
+				fmt.Printf("- %s\n", version)
+			}
+			return
 		}
 		version, err := bs.GetBibleVersion()
 		if err != nil {
-			panic(err)
+			cobra.CheckErr(err)
 		}
 		fmt.Printf("Current Bible Version: %s\n", version)
 	},
@@ -63,4 +91,5 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// bibleCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	bibleCmd.Flags().BoolVarP(&ListVersions, "list-versions", "l", false, "rapela bible --list-versions or --lv")
 }

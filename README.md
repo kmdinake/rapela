@@ -17,7 +17,7 @@ rapela bible
 
 To see the list of bible versions:
 ```bash
-rapela bible --list-versions or --lv
+rapela bible --list-versions or -l
 ```
 
 To set a bible version:
