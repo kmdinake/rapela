@@ -84,6 +84,7 @@ var bibleCmd = &cobra.Command{
 			for _, v := range versions {
 				if v.Id == NewBibleVersionId {
 					newVersion = v
+					break
 				}
 			}
 			if newVersion.Id == "" {
