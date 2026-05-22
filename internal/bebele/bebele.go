@@ -110,7 +110,7 @@ func (bs WldehBibleService) GetBibleVersionById(versionId string) (BibleVersion,
 }
 
 func (bs WldehBibleService) GetBooksBy(versionId string) ([]BibleBook, error) {
-	fmt.Printf("Getting books for bible version %s\n", versionId)
+	// fmt.Printf("Getting books for bible version %s\n", versionId)
 	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books", versionId)
 	var data any
 	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
@@ -130,7 +130,7 @@ func (bs WldehBibleService) GetBooksBy(versionId string) ([]BibleBook, error) {
 }
 
 func (bs WldehBibleService) GetChaptersBy(versionId string, bookId string) ([]BibleChapter, error) {
-	fmt.Printf("Getting chapters for bible version %s book %s\n", versionId, bookId)
+	// fmt.Printf("Getting chapters for bible version %s book %s\n", versionId, bookId)
 	url := fmt.Sprintf("https://api.github.com/repos/wldeh/bible-api/contents/bibles/%s/books/%s/chapters", versionId, bookId)
 	var data any
 	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
@@ -153,7 +153,7 @@ func (bs WldehBibleService) GetChaptersBy(versionId string, bookId string) ([]Bi
 }
 
 func (bs WldehBibleService) GetVersesBy(versionId string, bookId string, chapterId string) ([]BibleVerse, error) {
-	fmt.Printf("Getting verses for bible version %s book %s chapter %s\n", versionId, bookId, chapterId)
+	// fmt.Printf("Getting verses for bible version %s book %s chapter %s\n", versionId, bookId, chapterId)
 	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s.json", versionId, bookId, chapterId)
 	var data any
 	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
@@ -184,7 +184,7 @@ func (bs WldehBibleService) GetVersesBy(versionId string, bookId string, chapter
 }
 
 func (bs WldehBibleService) GetVerseBy(versionId string, bookId string, chapterId string, verseId string) (BibleVerse, error) {
-	fmt.Printf("Getting verse for bible version %s book %s chapter %s verse %s\n", versionId, bookId, chapterId, verseId)
+	// fmt.Printf("Getting verse for bible version %s book %s chapter %s verse %s\n", versionId, bookId, chapterId, verseId)
 	url := fmt.Sprintf("https://raw.githubusercontent.com/wldeh/bible-api/main/bibles/%s/books/%s/chapters/%s/verses/%s.json", versionId, bookId, chapterId, verseId)
 	var data any
 	if err := bs.fetchJsonDataFrom(url, &data); err != nil {
@@ -286,7 +286,7 @@ func (bs WldehBibleService) fetchJsonDataFrom(url string, outputParam *any) erro
 }
 
 func (bs WldehBibleService) convertToBibleVersions(data interface{}) []BibleVersion {
-	fmt.Println("Converting to bible version collection...")
+	// fmt.Println("Converting to bible version collection...")
 	var versions []BibleVersion
 	for _, v := range data.([]interface{}) {
 		version, err := bs.convertJsonToBibleVersion(v)
@@ -299,7 +299,7 @@ func (bs WldehBibleService) convertToBibleVersions(data interface{}) []BibleVers
 }
 
 func (bs WldehBibleService) convertToBibleVersion(data interface{}) (BibleVersion, error) {
-	fmt.Println("Converting to bible version...")
+	// fmt.Println("Converting to bible version...")
 	var version BibleVersion
 	var err error
 	version, err = bs.convertJsonToBibleVersion(data)
