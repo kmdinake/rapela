@@ -50,7 +50,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		bs, err := rapela.NewBibleService()
 		if err != nil {
-			panic(err)
+			cobra.CheckErr(err)
 		}
 		verseOfTheDay := bs.GetVerseOfTheDay()
 		fmt.Printf("Dumela ngwana waka! Tseya sebaka se go rapela.\nVerse Of The Day: %s\n", verseOfTheDay)
