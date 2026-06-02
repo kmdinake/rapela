@@ -26,6 +26,7 @@ import (
 
 	"github.com/kmdinake/rapela/rapela"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var ListVersions bool
@@ -56,7 +57,8 @@ var bibleCmd = &cobra.Command{
 	  - ...
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		bs, err := rapela.NewBibleService()
+		BibleVersionFromConfig := viper.GetString("bible-version")
+		bs, err := rapela.NewBibleService(BibleVersionFromConfig)
 		if err != nil {
 			cobra.CheckErr(err)
 		}

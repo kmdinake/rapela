@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/kmdinake/rapela/rapela"
 	"github.com/spf13/cobra"
@@ -51,11 +52,12 @@ var rootCmd = &cobra.Command{
 	To set a bible version:
 	rapela bible --set=<name-of-version>
 `,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) { // PersistentPreRunE is called after flags are parsed but before the command's RunE function is called. 
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error { // PersistentPreRunE is called after flags are parsed but before the command's RunE function is called. 
 		return initializeConfig(cmd)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		bs, err := rapela.NewBibleService()
+		bibleVersionFromConfig := viper.GetString("bible-version")
+		bs, err := rapela.NewBibleService(bibleVersionFromConfig)
 		if err != nil {
 			cobra.CheckErr(err)
 		}
@@ -78,7 +80,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.rapela)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.rapela.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -104,8 +106,8 @@ func initializeConfig(cmd *cobra.Command) error {
 
 		// search for a config file with the name "config" (without extension).
 		viper.AddConfigPath(".")
-		viper.AddConfigPath(home + "/.rapela")
-		viper.SetConfigName("config")
+		viper.AddConfigPath(home)
+		viper.SetConfigName(".rapela")
 		viper.SetConfigType("yaml")
 	}
 
@@ -124,6 +126,6 @@ func initializeConfig(cmd *cobra.Command) error {
 		return err
 	}
 
-	fmt.Println("Configuration initialized. Using config file: ", viper.ConfigFileUsed())  // debug-only
+	// fmt.Println("Configuration initialized. Using config file: ", viper.ConfigFileUsed())  // debug-only
 	return nil
 }

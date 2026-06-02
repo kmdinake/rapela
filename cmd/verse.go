@@ -26,6 +26,7 @@ import (
 
 	"github.com/kmdinake/rapela/rapela"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // verseCmd represents the verse command
@@ -39,7 +40,8 @@ var verseCmd = &cobra.Command{
 	Which will display 
 	> (en-kjv) Genesis 1:1 - In the beginning God created the heaven and the earth.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		bs, err := rapela.NewBibleService()
+		BibleVersionFromConfig := viper.GetString("bible-version")
+		bs, err := rapela.NewBibleService(BibleVersionFromConfig)
 		if err != nil {
 			cobra.CheckErr(err)
 		}
