@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -50,7 +51,7 @@ var rootCmd = &cobra.Command{
 	To set a bible version:
 	rapela bible --set=<name-of-version>
 `,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRun: func(cmd *cobra.Command, args []string) { // PersistentPreRunE is called after flags are parsed but before the command's RunE function is called. 
 		return initializeConfig(cmd)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -77,9 +78,52 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.rapela.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.rapela)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func initializeConfig(cmd *cobra.Command) error {
+	// setup Viper to use environment variables
+	viper.SetEnvPrefix("RAPELA")
+
+	// allow fo nested keys in environment variables (e.g. RAPELA_BIBLE_VERSION)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "*", "-", "*"))
+	viper.AutomaticEnv()
+
+	// handle the configuration file
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		home, err := os.UserHomeDir()
+		
+		// only panic if we can't get the home directory
+		cobra.CheckErr(err)
+
+		// search for a config file with the name "config" (without extension).
+		viper.AddConfigPath(".")
+		viper.AddConfigPath(home + "/.rapela")
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
+	}
+
+	// read the configuration file
+	if err := viper.ReadInConfig(); err != nil {
+		// it's okay if the config file doesn't exist
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFoundError) {
+			return err
+		}
+	}
+
+	// bind Cobra flags to Viper
+	err := viper.BindPFlags(cmd.Flags())
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Configuration initialized. Using config file: ", viper.ConfigFileUsed())  // debug-only
+	return nil
 }
