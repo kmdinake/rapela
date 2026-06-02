@@ -99,6 +99,7 @@ var bibleCmd = &cobra.Command{
 			if err != nil {
 				panic(err)
 			}
+			updateBibleVersionFromConfig(version.Id)
 			fmt.Printf("Current Bible Version after setting: %s\n", version)
 			return
 		}
@@ -125,4 +126,9 @@ func init() {
 	// bibleCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	bibleCmd.Flags().BoolVarP(&ListVersions, "list-versions", "l", false, "rapela bible --list-versions or --lv")
 	bibleCmd.Flags().StringVarP(&NewBibleVersionId, "set", "s", "", "rapela bible --set=<name-of-version> or -s=<name-of-version>") // todo (keo): bind this to a config value so that on startup we use this as the default value
+}
+
+func updateBibleVersionFromConfig(bibleVersionId string) {
+	viper.Set("bible-version", bibleVersionId)
+	viper.WriteConfig()
 }
