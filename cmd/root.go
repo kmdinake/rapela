@@ -27,7 +27,10 @@ import (
 
 	"github.com/kmdinake/rapela/rapela"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -47,6 +50,9 @@ var rootCmd = &cobra.Command{
 	To set a bible version:
 	rapela bible --set=<name-of-version>
 `,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		return initializeConfig(cmd)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		bs, err := rapela.NewBibleService()
 		if err != nil {
@@ -71,7 +77,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.rapela.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.rapela.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
