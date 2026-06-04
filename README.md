@@ -32,17 +32,22 @@ rapela bible --set=<name-of-version> or -s=<name-of-version>
 2. Extract the folder and place it in your desired location:<br/>
 > For instance in `C:\Program Files\` such that you have target folder path of `C:\Program Files\rapela_Windows_x86_64`
 
-3. Append the target folder path to your system `PATH` variable
-For instance on Windows 
+3. Append the target folder path to your system `PATH` variable.<br>
+For instance on Windows, execute the following command:
 ```bash
-setx PATH "%PATH%;C:\Program Files\rapela_Windows_x86_64"
+> setx PATH "%PATH%;C:\Program Files\rapela_Windows_x86_64"
 ```
 Thereafter, refresh your terminal to get the latest environment variables.
 
 4. Verify installation
 Execute the following command to see the verse of the day
 ```bash
-rapela
+> rapela
+```
+Then you will see the verse of the day:<br>
+```bash
+Dumela ngwana waka! Tseya sebaka se go rapela.
+Verse Of The Day: (tn-olef) Johane II 1:12 - Ke ne ke eletsa go bua tse dingwe, mme ga ke batle go di bua mo lokwalong lo, gonne ke solofela go tla go lo bona ka bofefo mme ke gone re tlaa buisanyang ka tsone re bo re nna le nako ya boitumelo.
 ```
 
 ## Troubleshoot Installation
