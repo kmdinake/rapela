@@ -1,0 +1,83 @@
+project_name: rapela
+
+before:
+  hooks:
+    - go mod tidy
+  
+builds:
+  - id: rapela
+    main: .
+    binary: rapela
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    builds:
+      - rapela
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >
+      {{ .ProjectName }}_
+      {{ .Version }}_
+      {{ .Os }}_
+      {{ .Arch }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ .Tag }}-snapshot"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: kmdinake
+    name: rapela
+  draft: false
+  prerelease: auto
+
+brews:
+  - name: rapela
+    tap:
+      owner: kmdinake
+      name: homebrew-tap
+    homepage: "https://github.com/kmdinake/rapela"
+    description: "Rapela - Daily prompt to take a moment to pray 🙇🏾"
+    license: "MIT"
+    install: \|
+      bin.install "rapela"
+
+scoops:
+  - name: rapela
+    bucket:
+      owner: kmdinake
+      name: scoop-bucket
+    homepage: "https://github.com/kmdinake/rapela"
+    description: "Rapela - Daily prompt to take a moment to pray 🙇🏾"
+    license: "MIT"
+
+nfpms:
+  - id: packages
+    package_name: rapela
+    homepage: "https://github.com/kmdinake/rapela"
+    description: "Rapela - Daily prompt to take a moment to pray 🙇🏾"
+    license: "MIT"
+    maintainer: "kmdinake"
+    formats:
+      - deb
+      - rpm
